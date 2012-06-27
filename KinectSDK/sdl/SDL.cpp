@@ -16,7 +16,7 @@ GLuint textureId;
 GLubyte data[width*height*4];
 
 // Kinect variables
-HANDLE depthStream;
+HANDLE rgbStream;
 INuiSensor* sensor;
 
 bool init(int argc, char* argv[]) {
@@ -38,14 +38,14 @@ bool initKinect() {
 		0,		// Image stream flags, e.g. near mode
 		2,		// Number of frames to buffer
 		NULL,   // Event
-		&depthStream);
+		&rgbStream);
 	return sensor;
 }
 
 void getKinectData(GLubyte* dest) {
 	NUI_IMAGE_FRAME imageFrame;
 	NUI_LOCKED_RECT LockedRect;
-	if (sensor->NuiImageStreamGetNextFrame(depthStream, 0, &imageFrame) < 0) return;
+	if (sensor->NuiImageStreamGetNextFrame(rgbStream, 0, &imageFrame) < 0) return;
 	INuiFrameTexture* texture = imageFrame.pFrameTexture;
     texture->LockRect(0, &LockedRect, NULL, 0);
     if (LockedRect.Pitch != 0)
@@ -58,7 +58,7 @@ void getKinectData(GLubyte* dest) {
 		}
     }
     texture->UnlockRect(0);
-    sensor->NuiImageStreamReleaseFrame(depthStream, &imageFrame);
+    sensor->NuiImageStreamReleaseFrame(rgbStream, &imageFrame);
 }
 
 void drawKinectData() {
