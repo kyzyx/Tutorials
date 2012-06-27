@@ -1,8 +1,8 @@
-#include <gl/glew.h>
+#include <SDL_opengl.h>
 #include <SDL.h>
 
-#include <Windows.h>
 #include <Ole2.h>
+#include <Windows.h>
 
 #include <NuiApi.h>
 #include <NuiImageCamera.h>
@@ -10,10 +10,6 @@
 
 #define width 640
 #define height 480
-
-// SDL Variables
-SDL_Surface* screen;
-SDL_Event ev;
 
 // OpenGL Variables
 GLuint textureId;
@@ -23,41 +19,27 @@ GLubyte data[width*height*4];
 HANDLE depthStream;
 INuiSensor* sensor;
 
-bool initSDL() {
-	glewInit();
+bool init(int argc, char* argv[]) {
 	SDL_Init(SDL_INIT_EVERYTHING);
-	const SDL_VideoInfo* info = SDL_GetVideoInfo();
-	if (!info) return false;
-
-	// OpenGL param setup goes here
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
-
-	screen = SDL_SetVideoMode(width, height, info->vfmt->BitsPerPixel, SDL_HWSURFACE | SDL_GL_DOUBLEBUFFER | SDL_OPENGL);
-	if (screen) return true;
-	else return false;
+	SDL_Surface* screen = SDL_SetVideoMode(width, height, 32, SDL_HWSURFACE | SDL_GL_DOUBLEBUFFER | SDL_OPENGL);
+	return screen;
 }
 
 bool initKinect() {
 	// Get a working kinect sensor
 	int numSensors;
 	if (NuiGetSensorCount(&numSensors) < 0 || numSensors < 1) return false;
-	for (int i = 0; i < numSensors; ++i) {
-		if (NuiCreateSensorByIndex(i, &sensor) < 0) continue;
-		if (sensor->NuiStatus() == 0) break;
-		sensor->Release();
-	}
+	if (NuiCreateSensorByIndex(0, &sensor) < 0) return false;
 
 	// Initialize sensor
 	sensor->NuiInitialize(NUI_INITIALIZE_FLAG_USES_DEPTH | NUI_INITIALIZE_FLAG_USES_COLOR);
-	sensor->NuiImageStreamOpen(NUI_IMAGE_TYPE_COLOR,
-		NUI_IMAGE_RESOLUTION_640x480,
+	sensor->NuiImageStreamOpen(NUI_IMAGE_TYPE_COLOR, // Depth camera or rgb camera?
+		NUI_IMAGE_RESOLUTION_640x480,    // Image resolution
 		0,		// Image stream flags, e.g. near mode
 		2,		// Number of frames to buffer
-		NULL,
+		NULL,   // Event
 		&depthStream);
-	if (sensor) return true;
-	return false;
+	return sensor;
 }
 
 void getKinectData(GLubyte* dest) {
@@ -65,10 +47,7 @@ void getKinectData(GLubyte* dest) {
 	NUI_LOCKED_RECT LockedRect;
 	if (sensor->NuiImageStreamGetNextFrame(depthStream, 0, &imageFrame) < 0) return;
 	INuiFrameTexture* texture = imageFrame.pFrameTexture;
-	// Lock the frame data so the Kinect knows not to modify it while we're reading it
     texture->LockRect(0, &LockedRect, NULL, 0);
-
-    // Make sure we've received valid data
     if (LockedRect.Pitch != 0)
     {
         const BYTE* curr = (const BYTE*) LockedRect.pBits;
@@ -78,18 +57,15 @@ void getKinectData(GLubyte* dest) {
 			*dest++ = *curr++;
 		}
     }
-    // We're done with the texture so unlock it
     texture->UnlockRect(0);
-    // Release the frame
     sensor->NuiImageStreamReleaseFrame(depthStream, &imageFrame);
 }
 
 void drawKinectData() {
 	glBindTexture(GL_TEXTURE_2D, textureId);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_BGRA, GL_UNSIGNED_BYTE, (GLvoid*)data);
 	getKinectData(data);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_BGRA, GL_UNSIGNED_BYTE, (GLvoid*)data);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glLoadIdentity();
 	glBegin(GL_QUADS);
 		glTexCoord2f(0.0f, 0.0f);
 		glVertex3f(0, 0, 0);
@@ -103,6 +79,7 @@ void drawKinectData() {
 }
 
 void execute() {
+	SDL_Event ev;
 	bool running = true;
 	while (running) {
 		while (SDL_PollEvent(&ev)) {
@@ -114,7 +91,7 @@ void execute() {
 }
 
 int main(int argc, char* argv[]) {
-	if (!init()) return 1;
+	if (!init(argc, argv)) return 1;
 	if (!initKinect()) return 1;
 
     // Initialize textures
@@ -122,8 +99,6 @@ int main(int argc, char* argv[]) {
 	glBindTexture(GL_TEXTURE_2D, textureId);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, (GLvoid*) data);
     glBindTexture(GL_TEXTURE_2D, 0);
 
