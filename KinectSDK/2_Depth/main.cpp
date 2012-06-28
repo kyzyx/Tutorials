@@ -13,7 +13,7 @@ GLuint textureId;
 GLubyte data[width*height*4];
 
 // Kinect variables
-HANDLE rgbStream;
+HANDLE depthStream;
 INuiSensor* sensor;
 
 bool initKinect() {
@@ -24,32 +24,39 @@ bool initKinect() {
 
 	// Initialize sensor
 	sensor->NuiInitialize(NUI_INITIALIZE_FLAG_USES_DEPTH | NUI_INITIALIZE_FLAG_USES_COLOR);
-	sensor->NuiImageStreamOpen(NUI_IMAGE_TYPE_COLOR, // Depth camera or rgb camera?
-		NUI_IMAGE_RESOLUTION_640x480,    // Image resolution
-		0,		// Image stream flags, e.g. near mode
+	sensor->NuiImageStreamOpen(NUI_IMAGE_TYPE_DEPTH, // Depth camera or rgb camera?
+		NUI_IMAGE_RESOLUTION_640x480,                // Image resolution
+		NUI_IMAGE_STREAM_FLAG_ENABLE_NEAR_MODE,		 // Image stream flags, e.g. near mode
 		2,		// Number of frames to buffer
-		NULL,   // Event
-		&rgbStream);
+		NULL,   // Event handle
+		&depthStream);
 	return sensor;
 }
 
 void getKinectData(GLubyte* dest) {
 	NUI_IMAGE_FRAME imageFrame;
 	NUI_LOCKED_RECT LockedRect;
-	if (sensor->NuiImageStreamGetNextFrame(rgbStream, 0, &imageFrame) < 0) return;
+	if (sensor->NuiImageStreamGetNextFrame(depthStream, 0, &imageFrame) < 0) return;
 	INuiFrameTexture* texture = imageFrame.pFrameTexture;
     texture->LockRect(0, &LockedRect, NULL, 0);
     if (LockedRect.Pitch != 0)
     {
-        const BYTE* curr = (const BYTE*) LockedRect.pBits;
-        const BYTE* dataEnd = curr + (width*height)*4;          // end pixel is start + width*height - 1
+        const USHORT* curr = (const USHORT*) LockedRect.pBits;
+        const USHORT* dataEnd = curr + (width*height);
 
 		while (curr < dataEnd) {
-			*dest++ = *curr++;
+			// Get depth in millimeters
+			USHORT depth = NuiDepthPixelToDepth(*curr++);
+
+			// Draw a grayscale image of the depth:
+			// B,G,R are all set to depth%256, alpha set to 1.
+			for (int i = 0; i < 3; ++i)
+				*dest++ = (BYTE) depth%256;
+			*dest++ = 0xff;
 		}
     }
     texture->UnlockRect(0);
-    sensor->NuiImageStreamReleaseFrame(rgbStream, &imageFrame);
+    sensor->NuiImageStreamReleaseFrame(depthStream, &imageFrame);
 }
 
 void drawKinectData() {
