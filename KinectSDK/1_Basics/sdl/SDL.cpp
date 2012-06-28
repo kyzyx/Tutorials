@@ -37,7 +37,7 @@ bool initKinect() {
 		NUI_IMAGE_RESOLUTION_640x480,    // Image resolution
 		0,		// Image stream flags, e.g. near mode
 		2,		// Number of frames to buffer
-		NULL,   // Event
+		NULL,   // Event handle
 		&rgbStream);
 	return sensor;
 }
@@ -51,7 +51,7 @@ void getKinectData(GLubyte* dest) {
     if (LockedRect.Pitch != 0)
     {
         const BYTE* curr = (const BYTE*) LockedRect.pBits;
-        const BYTE* dataEnd = curr + (width*height)*4;          // end pixel is start + width*height - 1
+        const BYTE* dataEnd = curr + (width*height)*4;
 
 		while (curr < dataEnd) {
 			*dest++ = *curr++;

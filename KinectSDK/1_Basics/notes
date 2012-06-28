@@ -1,0 +1,23 @@
+SDL Instructions:
+
+Prereqs: Windows, Visual Studio. C, OpenGL. 
+
+0. Install SDL - Download, unzip, remember directory
+1. Set up project:
+    - Open visual studio, new project. 
+    - Set up config cards
+        - View > Property Manager
+        - Right-click project, Add New Project Property Sheet, call it
+          SDL_OpenGL (Kinect) (GLUT)
+        - Right-click new sheet, Properties.
+            C/C++ > Additional Include Directories: $(SDL_DIR)\include
+            Linker > Additional Library Directories: $(SDL_DIR)\lib\x86
+            Linker > Input > Additional Dependencies: opengl32.lib, glu32.lib, SDL.lib, SDLmain.lib (glut32.lib)
+            C/C++ > Additional Include Directories: $(KINECTSDK10_DIR)\include
+            Linker > Additional Library Directories: $(KINECTSDK10_DIR)\lib\x86
+            Linker > Input > Additional Dependencies: kinect10.lib, FaceTrackLib.lib
+        - Optionally, add to release.
+
+2. Code
+    Includes - windows, NUI, SDL
+
