@@ -108,10 +108,10 @@ int main(int argc, char* argv[]) {
 	glEnable(GL_TEXTURE_2D);
 
     // Camera setup
-	glViewport(0, 0, 640, 480);
+	glViewport(0, 0, width, height);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glOrtho(0, 640, 480, 0, 1, -1);
+	glOrtho(0, width, height, 0, 1, -1);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
