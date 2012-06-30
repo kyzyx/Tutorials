@@ -13,12 +13,12 @@
 #define height 480
 
 // OpenGL Variables
-GLuint textureId;
-GLubyte data[width*height*4];
+GLuint textureId;              // ID of the texture to contain Kinect RGB Data
+GLubyte data[width*height*4];  // BGRA array containing the texture data
 
 // Kinect variables
-HANDLE rgbStream;
-INuiSensor* sensor;
+HANDLE rgbStream;              // The identifier of the Kinect's RGB Camera
+INuiSensor* sensor;            // The kinect sensor
 
 void draw(void);
 
@@ -40,7 +40,8 @@ bool initKinect() {
 
 	// Initialize sensor
 	sensor->NuiInitialize(NUI_INITIALIZE_FLAG_USES_DEPTH | NUI_INITIALIZE_FLAG_USES_COLOR);
-	sensor->NuiImageStreamOpen(NUI_IMAGE_TYPE_COLOR, // Depth camera or rgb camera?
+	sensor->NuiImageStreamOpen(
+		NUI_IMAGE_TYPE_COLOR,            // Depth camera or rgb camera?
 		NUI_IMAGE_RESOLUTION_640x480,    // Image resolution
 		0,		// Image stream flags, e.g. near mode
 		2,		// Number of frames to buffer
