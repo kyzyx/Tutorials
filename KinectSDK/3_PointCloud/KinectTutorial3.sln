@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "KinectTutorial3", "KinectTutorial3\KinectTutorial3.vcxproj", "{AFFAABC2-707F-4CE0-87D1-CCA550249103}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "KinectTutorial3", "KinectTutorial3.vcxproj", "{AFFAABC2-707F-4CE0-87D1-CCA550249103}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
