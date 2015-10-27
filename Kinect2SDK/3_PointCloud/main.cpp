@@ -9,128 +9,119 @@
 
 #include <Kinect.h>
 
-// OpenGL Variables
-long depthToRgbMap[width*height*2];
 // We'll be using buffer objects to store the kinect point cloud
 GLuint vboId;
 GLuint cboId;
 
+// Intermediate Buffers
+unsigned char rgbimage[colorwidth*colorheight*4];    // Stores RGB color image
+ColorSpacePoint depth2rgb[width*height];             // Maps depth pixels to rgb pixels
+CameraSpacePoint depth2xyz[width*height];			 // Maps depth pixels to 3d coordinates
+
 // Kinect Variables
 IKinectSensor* sensor;             // Kinect sensor
-IColorFrameReader* colorreader;    // Kinect color data source
-IDepthFrameReader* depthreader;    // Kinect depth data source
+IMultiSourceFrameReader* reader;   // Kinect data source
+ICoordinateMapper* mapper;         // Converts between depth, color, and 3d coordinates
 
 bool initKinect() {
     if (FAILED(GetDefaultKinectSensor(&sensor))) {
 		return false;
 	}
 	if (sensor) {
+		sensor->get_CoordinateMapper(&mapper);
+
 		sensor->Open();
-
-        // Set up color reader
-		IColorFrameSource* colorframesource = NULL;
-		sensor->get_ColorFrameSource(&colorframesource);
-		colorframesource->OpenReader(&colorreader);
-		if (colorframesource) {
-			colorframesource->Release();
-			colorframesource = NULL;
-		}
-
-        // Set up depth reader
-		IDepthFrameSource* depthframesource = NULL;
-		sensor->get_DepthFrameSource(&depthframesource);
-		depthframesource->OpenReader(&depthreader);
-		if (depthframesource) {
-			depthframesource->Release();
-			depthframesource = NULL;
-		}
-
-		return true;
+		sensor->OpenMultiSourceFrameReader(
+			FrameSourceTypes::FrameSourceTypes_Depth | FrameSourceTypes::FrameSourceTypes_Color,
+			&reader);
+		return reader;
 	} else {
 		return false;
 	}
 }
 
-// FIXME
-void getDepthData(GLubyte* dest) {
-	float* fdest = (float*) dest;
-	long* depth2rgb = (long*) depthToRgbMap;
-    NUI_IMAGE_FRAME imageFrame;
-    NUI_LOCKED_RECT LockedRect;
-    if (sensor->NuiImageStreamGetNextFrame(depthStream, 0, &imageFrame) < 0) return;
-    INuiFrameTexture* texture = imageFrame.pFrameTexture;
-    texture->LockRect(0, &LockedRect, NULL, 0);
-    if (LockedRect.Pitch != 0) {
-        const USHORT* curr = (const USHORT*) LockedRect.pBits;
-        for (int j = 0; j < height; ++j) {
-			for (int i = 0; i < width; ++i) {
-				// Get depth of pixel in millimeters
-				USHORT depth = NuiDepthPixelToDepth(*curr++);
-				// Store coordinates of the point corresponding to this pixel
-				Vector4 pos = NuiTransformDepthImageToSkeleton(i, j, depth<<3, NUI_IMAGE_RESOLUTION_640x480);
-				*fdest++ = pos.x/pos.w;
-				*fdest++ = pos.y/pos.w;
-				*fdest++ = pos.z/pos.w;
-				// Store the index into the color array corresponding to this pixel
-				NuiImageGetColorPixelCoordinatesFromDepthPixelAtResolution(
-					NUI_IMAGE_RESOLUTION_640x480, NUI_IMAGE_RESOLUTION_640x480, NULL,
-					i, j, depth<<3, depth2rgb, depth2rgb+1);
-				depth2rgb += 2;
-			}
-		}
-    }
-    texture->UnlockRect(0);
-    sensor->NuiImageStreamReleaseFrame(depthStream, &imageFrame);
+void getDepthData(IMultiSourceFrame* frame, GLubyte* dest) {
+	IDepthFrame* depthframe;
+	IDepthFrameReference* frameref = NULL;
+	frame->get_DepthFrameReference(&frameref);
+	frameref->AcquireFrame(&depthframe);
+	if (frameref) frameref->Release();
+
+	if (!depthframe) return;
+
+	// Get data from frame
+	unsigned int sz;
+	unsigned short* buf;
+	depthframe->AccessUnderlyingBuffer(&sz, &buf);
+
+	// Write vertex coordinates
+	mapper->MapDepthFrameToCameraSpace(sz, buf, width*height, depth2xyz);
+	float* fdest = (float*)dest;
+	for (int i = 0; i < sz; i++) {
+		*fdest++ = depth2xyz[i].X;
+		*fdest++ = depth2xyz[i].Y;
+		*fdest++ = depth2xyz[i].Z;
+	}
+
+	// Fill in depth2rgb map
+	mapper->MapDepthFrameToColorSpace(sz, buf, width*height, depth2rgb);
+	if (depthframe) depthframe->Release();
 }
 
-void getRgbData(GLubyte* dest) {
-	float* fdest = (float*) dest;
-	long* depth2rgb = (long*) depthToRgbMap;
-	NUI_IMAGE_FRAME imageFrame;
-    NUI_LOCKED_RECT LockedRect;
-    if (sensor->NuiImageStreamGetNextFrame(rgbStream, 0, &imageFrame) < 0) return;
-    INuiFrameTexture* texture = imageFrame.pFrameTexture;
-    texture->LockRect(0, &LockedRect, NULL, 0);
-    if (LockedRect.Pitch != 0) {
-        const BYTE* start = (const BYTE*) LockedRect.pBits;
-        for (int j = 0; j < height; ++j) {
-			for (int i = 0; i < width; ++i) {
-				// Determine rgb color for each depth pixel
-				long x = *depth2rgb++;
-				long y = *depth2rgb++;
-				// If out of bounds, then don't color it at all
-				if (x < 0 || y < 0 || x > width || y > height) {
-					for (int n = 0; n < 3; ++n) *(fdest++) = 0.0f;
-				}
-				else {
-					const BYTE* curr = start + (x + width*y)*4;
-					for (int n = 0; n < 3; ++n) *(fdest++) = curr[2-n]/255.0f;
-				}
+void getRgbData(IMultiSourceFrame* frame, GLubyte* dest) {
+	IColorFrame* colorframe;
+	IColorFrameReference* frameref = NULL;
+	frame->get_ColorFrameReference(&frameref);
+	frameref->AcquireFrame(&colorframe);
+	if (frameref) frameref->Release();
 
+	if (!colorframe) return;
+
+	// Get data from frame
+	colorframe->CopyConvertedFrameDataToArray(colorwidth*colorheight*4, rgbimage, ColorImageFormat_Rgba);
+
+	// Write color array for vertices
+	ColorSpacePoint* p = depth2rgb;
+	float* fdest = (float*)dest;
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			if (p->X < 0 || p->Y < 0 || p->X > colorwidth || p->Y > colorheight) {
+				*fdest++ = 0;
+				*fdest++ = 0;
+				*fdest++ = 0;
 			}
+			else {
+				int idx = (int)p->X + colorwidth*(int)p->Y;
+				*fdest++ = rgbimage[4 * idx + 0]/255.;
+				*fdest++ = rgbimage[4 * idx + 1]/255.;
+				*fdest++ = rgbimage[4 * idx + 2]/255.;
+			}
+			// Don't copy alpha channel
+			p++;
 		}
-    }
-    texture->UnlockRect(0);
-    sensor->NuiImageStreamReleaseFrame(rgbStream, &imageFrame);
+	}
+
+	if (colorframe) colorframe->Release();
 }
 
 void getKinectData() {
-	const int dataSize = width*height*3*4;
-	GLubyte* ptr;
-	glBindBuffer(GL_ARRAY_BUFFER, vboId);
-	glBufferData(GL_ARRAY_BUFFER, dataSize, 0, GL_DYNAMIC_DRAW);
-	ptr = (GLubyte*) glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-	if (ptr) {
-		getDepthData(ptr);
+	IMultiSourceFrame* frame = NULL;
+	if (SUCCEEDED(reader->AcquireLatestFrame(&frame))) {
+		GLubyte* ptr;
+		glBindBuffer(GL_ARRAY_BUFFER, vboId);
+		ptr = (GLubyte*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		if (ptr) {
+			getDepthData(frame, ptr);
+		}
+		glUnmapBuffer(GL_ARRAY_BUFFER);
+		glBindBuffer(GL_ARRAY_BUFFER, cboId);
+		ptr = (GLubyte*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		if (ptr) {
+			getRgbData(frame, ptr);
+		}
+		glUnmapBuffer(GL_ARRAY_BUFFER);
 	}
-	glUnmapBuffer(GL_ARRAY_BUFFER);
-	glBindBuffer(GL_ARRAY_BUFFER, cboId);
-	glBufferData(GL_ARRAY_BUFFER, dataSize, 0, GL_DYNAMIC_DRAW);
-	ptr = (GLubyte*) glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-	if (ptr) {
-		getRgbData(ptr);
-	}
-	glUnmapBuffer(GL_ARRAY_BUFFER);
+	if (frame) frame->Release();
 }
 
 void rotateCamera() {
@@ -141,7 +132,7 @@ void rotateCamera() {
 	glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 	gluLookAt(x,0,z,0,0,radius/2,0,1,0);
-	angle += 0.05;
+	angle += 0.002;
 }
 
 void drawKinectData() {
@@ -174,10 +165,13 @@ int main(int argc, char* argv[]) {
     glClearDepth(1.0f);
 
 	// Set up array buffers
+	const int dataSize = width*height * 3 * 4;
 	glGenBuffers(1, &vboId);
 	glBindBuffer(GL_ARRAY_BUFFER, vboId);
+	glBufferData(GL_ARRAY_BUFFER, dataSize, 0, GL_DYNAMIC_DRAW);
 	glGenBuffers(1, &cboId);
 	glBindBuffer(GL_ARRAY_BUFFER, cboId);
+	glBufferData(GL_ARRAY_BUFFER, dataSize, 0, GL_DYNAMIC_DRAW);
 
     // Camera setup
     glViewport(0, 0, width, height);
