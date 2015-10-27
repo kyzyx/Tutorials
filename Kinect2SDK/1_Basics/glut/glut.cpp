@@ -5,20 +5,18 @@
 #include <gl/GLU.h>
 #include <gl/glut.h>
 
-#include <NuiApi.h>
-#include <NuiImageCamera.h>
-#include <NuiSensor.h>
+#include <Kinect.h>
 
-#define width 640
-#define height 480
+#define width 1920
+#define height 1080
 
 // OpenGL Variables
 GLuint textureId;              // ID of the texture to contain Kinect RGB Data
 GLubyte data[width*height*4];  // BGRA array containing the texture data
 
 // Kinect variables
-HANDLE rgbStream;              // The identifier of the Kinect's RGB Camera
-INuiSensor* sensor;            // The kinect sensor
+IKinectSensor* sensor;         // Kinect sensor
+IColorFrameReader* reader;     // Kinect color data source
 
 void draw(void);
 
@@ -33,40 +31,30 @@ bool init(int argc, char* argv[]) {
 }
 
 bool initKinect() {
-    // Get a working kinect sensor
-    int numSensors;
-    if (NuiGetSensorCount(&numSensors) < 0 || numSensors < 1) return false;
-    if (NuiCreateSensorByIndex(0, &sensor) < 0) return false;
-
-    // Initialize sensor
-    sensor->NuiInitialize(NUI_INITIALIZE_FLAG_USES_DEPTH | NUI_INITIALIZE_FLAG_USES_COLOR);
-    sensor->NuiImageStreamOpen(
-        NUI_IMAGE_TYPE_COLOR,            // Depth camera or rgb camera?
-        NUI_IMAGE_RESOLUTION_640x480,    // Image resolution
-        0,        // Image stream flags, e.g. near mode
-        2,        // Number of frames to buffer
-        NULL,   // Event handle
-        &rgbStream);
-    return sensor;
+    if (FAILED(GetDefaultKinectSensor(&sensor))) {
+		return false;
+	}
+	if (sensor) {
+		sensor->Open();
+		IColorFrameSource* framesource = NULL;
+		sensor->get_ColorFrameSource(&framesource);
+		framesource->OpenReader(&reader);
+		if (framesource) {
+			framesource->Release();
+			framesource = NULL;
+		}
+		return true;
+	} else {
+		return false;
+	}
 }
 
 void getKinectData(GLubyte* dest) {
-    NUI_IMAGE_FRAME imageFrame;
-    NUI_LOCKED_RECT LockedRect;
-    if (sensor->NuiImageStreamGetNextFrame(rgbStream, 0, &imageFrame) < 0) return;
-    INuiFrameTexture* texture = imageFrame.pFrameTexture;
-    texture->LockRect(0, &LockedRect, NULL, 0);
-    if (LockedRect.Pitch != 0)
-    {
-        const BYTE* curr = (const BYTE*) LockedRect.pBits;
-        const BYTE* dataEnd = curr + (width*height)*4;
-
-        while (curr < dataEnd) {
-            *dest++ = *curr++;
-        }
+    IColorFrame* frame = NULL;
+    if (SUCCEEDED(reader->AcquireLatestFrame(&frame))) {
+        frame->CopyConvertedFrameDataToArray(width*height*4, data, ColorImageFormat_Bgra);
     }
-    texture->UnlockRect(0);
-    sensor->NuiImageStreamReleaseFrame(rgbStream, &imageFrame);
+    if (frame) frame->Release();
 }
 
 void drawKinectData() {
