@@ -1,5 +1,5 @@
 #pragma once
-const int width = 640;
-const int height = 480;
+const int width = 512;
+const int height = 424;
 
 void drawKinectData();

@@ -7,9 +7,7 @@
 #include <Windows.h>
 #include <Ole2.h>
 
-#include <NuiApi.h>
-#include <NuiImageCamera.h>
-#include <NuiSensor.h>
+#include <Kinect.h>
 
 // OpenGL Variables
 long depthToRgbMap[width*height*2];
@@ -17,34 +15,43 @@ long depthToRgbMap[width*height*2];
 GLuint vboId;
 GLuint cboId;
 
-// Kinect variables
-HANDLE depthStream;
-HANDLE rgbStream;
-INuiSensor* sensor;
+// Kinect Variables
+IKinectSensor* sensor;             // Kinect sensor
+IColorFrameReader* colorreader;    // Kinect color data source
+IDepthFrameReader* depthreader;    // Kinect depth data source
 
 bool initKinect() {
-    // Get a working kinect sensor
-    int numSensors;
-    if (NuiGetSensorCount(&numSensors) < 0 || numSensors < 1) return false;
-    if (NuiCreateSensorByIndex(0, &sensor) < 0) return false;
+    if (FAILED(GetDefaultKinectSensor(&sensor))) {
+		return false;
+	}
+	if (sensor) {
+		sensor->Open();
 
-    // Initialize sensor
-    sensor->NuiInitialize(NUI_INITIALIZE_FLAG_USES_DEPTH | NUI_INITIALIZE_FLAG_USES_COLOR);
-    sensor->NuiImageStreamOpen(NUI_IMAGE_TYPE_DEPTH, // Depth camera or rgb camera?
-        NUI_IMAGE_RESOLUTION_640x480,                // Image resolution
-        0,        // Image stream flags, e.g. near mode
-        2,        // Number of frames to buffer
-        NULL,     // Event handle
-        &depthStream);
-	sensor->NuiImageStreamOpen(NUI_IMAGE_TYPE_COLOR, // Depth camera or rgb camera?
-        NUI_IMAGE_RESOLUTION_640x480,                // Image resolution
-        0,      // Image stream flags, e.g. near mode
-        2,      // Number of frames to buffer
-        NULL,   // Event handle
-		&rgbStream);
-    return sensor;
+        // Set up color reader
+		IColorFrameSource* colorframesource = NULL;
+		sensor->get_ColorFrameSource(&colorframesource);
+		colorframesource->OpenReader(&colorreader);
+		if (colorframesource) {
+			colorframesource->Release();
+			colorframesource = NULL;
+		}
+
+        // Set up depth reader
+		IDepthFrameSource* depthframesource = NULL;
+		sensor->get_DepthFrameSource(&depthframesource);
+		depthframesource->OpenReader(&depthreader);
+		if (depthframesource) {
+			depthframesource->Release();
+			depthframesource = NULL;
+		}
+
+		return true;
+	} else {
+		return false;
+	}
 }
 
+// FIXME
 void getDepthData(GLubyte* dest) {
 	float* fdest = (float*) dest;
 	long* depth2rgb = (long*) depthToRgbMap;
@@ -147,13 +154,13 @@ void drawKinectData() {
 
 	glBindBuffer(GL_ARRAY_BUFFER, vboId);
 	glVertexPointer(3, GL_FLOAT, 0, NULL);
-	
+
 	glBindBuffer(GL_ARRAY_BUFFER, cboId);
 	glColorPointer(3, GL_FLOAT, 0, NULL);
 
 	glPointSize(1.f);
 	glDrawArrays(GL_POINTS, 0, width*height);
-	
+
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_COLOR_ARRAY);
 }

@@ -4,59 +4,57 @@
 #include <Windows.h>
 #include <Ole2.h>
 
-#include <NuiApi.h>
-#include <NuiImageCamera.h>
-#include <NuiSensor.h>
+#include <Kinect.h>
 
 // OpenGL Variables
 GLuint textureId;
 GLubyte data[width*height*4];
 
 // Kinect variables
-HANDLE depthStream;
-INuiSensor* sensor;
+IKinectSensor* sensor;         // Kinect sensor
+IDepthFrameReader* reader;     // Kinect depth data source
 
 bool initKinect() {
-    // Get a working kinect sensor
-    int numSensors;
-    if (NuiGetSensorCount(&numSensors) < 0 || numSensors < 1) return false;
-    if (NuiCreateSensorByIndex(0, &sensor) < 0) return false;
-
-    // Initialize sensor
-    sensor->NuiInitialize(NUI_INITIALIZE_FLAG_USES_DEPTH | NUI_INITIALIZE_FLAG_USES_COLOR);
-    sensor->NuiImageStreamOpen(NUI_IMAGE_TYPE_DEPTH, // Depth camera or rgb camera?
-        NUI_IMAGE_RESOLUTION_640x480,                // Image resolution
-        NUI_IMAGE_STREAM_FLAG_ENABLE_NEAR_MODE,         // Image stream flags, e.g. near mode
-        2,        // Number of frames to buffer
-        NULL,   // Event handle
-        &depthStream);
-    return sensor;
+    if (FAILED(GetDefaultKinectSensor(&sensor))) {
+		return false;
+	}
+	if (sensor) {
+		sensor->Open();
+		IDepthFrameSource* framesource = NULL;
+		sensor->get_DepthFrameSource(&framesource);
+		framesource->OpenReader(&reader);
+		if (framesource) {
+			framesource->Release();
+			framesource = NULL;
+		}
+		return true;
+	} else {
+		return false;
+	}
 }
 
 void getKinectData(GLubyte* dest) {
-    NUI_IMAGE_FRAME imageFrame;
-    NUI_LOCKED_RECT LockedRect;
-    if (sensor->NuiImageStreamGetNextFrame(depthStream, 0, &imageFrame) < 0) return;
-    INuiFrameTexture* texture = imageFrame.pFrameTexture;
-    texture->LockRect(0, &LockedRect, NULL, 0);
-    if (LockedRect.Pitch != 0)
-    {
-        const USHORT* curr = (const USHORT*) LockedRect.pBits;
-        const USHORT* dataEnd = curr + (width*height);
+    IDepthFrame* frame = NULL;
+    if (SUCCEEDED(reader->AcquireLatestFrame(&frame))) {
+        unsigned int sz;
+		unsigned short* buf;
+		frame->AccessUnderlyingBuffer(&sz, &buf);
 
-        while (curr < dataEnd) {
-            // Get depth in millimeters
-            USHORT depth = NuiDepthPixelToDepth(*curr++);
+		const unsigned short* curr = (const unsigned short*)buf;
+		const unsigned short* dataEnd = curr + (width*height);
 
-            // Draw a grayscale image of the depth:
-            // B,G,R are all set to depth%256, alpha set to 1.
-            for (int i = 0; i < 3; ++i)
-                *dest++ = (BYTE) depth%256;
-            *dest++ = 0xff;
-        }
+		while (curr < dataEnd) {
+			// Get depth in millimeters
+			unsigned short depth = (*curr++);
+
+			// Draw a grayscale image of the depth:
+			// B,G,R are all set to depth%256, alpha set to 1.
+			for (int i = 0; i < 3; ++i)
+				*dest++ = (BYTE)depth % 256;
+			*dest++ = 0xff;
+		}
     }
-    texture->UnlockRect(0);
-    sensor->NuiImageStreamReleaseFrame(depthStream, &imageFrame);
+    if (frame) frame->Release();
 }
 
 void drawKinectData() {
