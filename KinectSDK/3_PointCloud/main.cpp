@@ -108,17 +108,14 @@ void getRgbData(GLubyte* dest) {
 }
 
 void getKinectData() {
-	const int dataSize = width*height*3*4;
 	GLubyte* ptr;
 	glBindBuffer(GL_ARRAY_BUFFER, vboId);
-	glBufferData(GL_ARRAY_BUFFER, dataSize, 0, GL_DYNAMIC_DRAW);
 	ptr = (GLubyte*) glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 	if (ptr) {
 		getDepthData(ptr);
 	}
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	glBindBuffer(GL_ARRAY_BUFFER, cboId);
-	glBufferData(GL_ARRAY_BUFFER, dataSize, 0, GL_DYNAMIC_DRAW);
 	ptr = (GLubyte*) glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 	if (ptr) {
 		getRgbData(ptr);
@@ -147,13 +144,13 @@ void drawKinectData() {
 
 	glBindBuffer(GL_ARRAY_BUFFER, vboId);
 	glVertexPointer(3, GL_FLOAT, 0, NULL);
-	
+
 	glBindBuffer(GL_ARRAY_BUFFER, cboId);
 	glColorPointer(3, GL_FLOAT, 0, NULL);
 
 	glPointSize(1.f);
 	glDrawArrays(GL_POINTS, 0, width*height);
-	
+
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_COLOR_ARRAY);
 }
@@ -167,10 +164,13 @@ int main(int argc, char* argv[]) {
     glClearDepth(1.0f);
 
 	// Set up array buffers
+	const int dataSize = width*height * 3 * 4;
 	glGenBuffers(1, &vboId);
 	glBindBuffer(GL_ARRAY_BUFFER, vboId);
+	glBufferData(GL_ARRAY_BUFFER, dataSize, 0, GL_DYNAMIC_DRAW);
 	glGenBuffers(1, &cboId);
 	glBindBuffer(GL_ARRAY_BUFFER, cboId);
+	glBufferData(GL_ARRAY_BUFFER, dataSize, 0, GL_DYNAMIC_DRAW);
 
     // Camera setup
     glViewport(0, 0, width, height);
