@@ -59,7 +59,7 @@ void getDepthData(IMultiSourceFrame* frame, GLubyte* dest) {
 	depthframe->AccessUnderlyingBuffer(&sz, &buf);
 
 	// Write vertex coordinates
-	mapper->MapDepthFrameToCameraSpace(sz, buf, width*height, depth2xyz);
+	mapper->MapDepthFrameToCameraSpace(width*height, buf, width*height, depth2xyz);
 	float* fdest = (float*)dest;
 	for (int i = 0; i < sz; i++) {
 		*fdest++ = depth2xyz[i].X;
@@ -68,7 +68,7 @@ void getDepthData(IMultiSourceFrame* frame, GLubyte* dest) {
 	}
 
 	// Fill in depth2rgb map
-	mapper->MapDepthFrameToColorSpace(sz, buf, width*height, depth2rgb);
+	mapper->MapDepthFrameToColorSpace(width*height, buf, width*height, depth2rgb);
 	if (depthframe) depthframe->Release();
 }
 
@@ -85,25 +85,22 @@ void getRgbData(IMultiSourceFrame* frame, GLubyte* dest) {
 	colorframe->CopyConvertedFrameDataToArray(colorwidth*colorheight*4, rgbimage, ColorImageFormat_Rgba);
 
 	// Write color array for vertices
-	ColorSpacePoint* p = depth2rgb;
 	float* fdest = (float*)dest;
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-			if (p->X < 0 || p->Y < 0 || p->X > colorwidth || p->Y > colorheight) {
-				*fdest++ = 0;
-				*fdest++ = 0;
-				*fdest++ = 0;
-			}
-			else {
-				int idx = (int)p->X + colorwidth*(int)p->Y;
-				*fdest++ = rgbimage[4 * idx + 0]/255.;
-				*fdest++ = rgbimage[4 * idx + 1]/255.;
-				*fdest++ = rgbimage[4 * idx + 2]/255.;
-			}
-			// Don't copy alpha channel
-			p++;
+	for (int i = 0; i < width*height; i++) {
+		ColorSpacePoint p = depth2rgb[i];
+		// Check if color pixel coordinates are in bounds
+		if (p.X < 0 || p.Y < 0 || p.X > colorwidth || p.Y > colorheight) {
+			*fdest++ = 0;
+			*fdest++ = 0;
+			*fdest++ = 0;
 		}
-	}
+		else {
+			int idx = (int)p.X + colorwidth*(int)p.Y;
+			*fdest++ = rgbimage[4*idx + 0]/255.;
+			*fdest++ = rgbimage[4*idx + 1]/255.;
+			*fdest++ = rgbimage[4*idx + 2]/255.;
+		}
+    }
 
 	if (colorframe) colorframe->Release();
 }
