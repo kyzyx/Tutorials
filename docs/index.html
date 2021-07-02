@@ -1,0 +1,96 @@
+<html>
+    <head>
+        <title>
+            Tutorials
+        </title>
+        <link rel="stylesheet" type="text/css" href="main.css">
+    <script type="text/javascript">
+
+        var _gaq = _gaq || [];
+        _gaq.push(['_setAccount', 'UA-37058937-1']);
+        _gaq.push(['_setCookiePath', '/~edwardz']);
+        _gaq.push(['_trackPageview']);
+
+        (function() {
+         var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+         ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+         var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+         })();
+
+    </script>
+    </head>
+    <body>
+    <div id='navbarcontainer'>
+        <ul id='navbar'>
+            <li class='navitem'><a class='nav' href='../index.html'>Home</a></li>
+            <li class='navitem'><a class='nav' href='index.html'>Tutorials Home</a></li>
+        </ul>
+    </div>
+    <div id='content'>
+        <h1>Tutorials</h1>
+        <h3> Kinect v1 C++ SDK Basics</h3>
+        <table>
+            <tr>
+                <td width="67%">
+                    Minimal tutorials on how to use a Kinect in C++, with OpenGL (GLUT or SDL).
+                    These tutorials are for the v1.8 SDK, which is compatible with the structured
+                    light Kinect sensors: The XBox 360 Kinect and the Kinect for Windows.
+                    <ul>
+                        <li><a href=kinect/kinect0.html>0. Setup</a></li>
+                        <li><a href=kinect/kinect1.html>1. Basics and RGB stream</a></li>
+                        <li><a href=kinect/kinect2.html>2. Depth stream</a></li>
+                        <li><a href=kinect/kinect3.html>3. Color Point Cloud</a></li>
+                        <li><a href=kinect/kinect4.html>4. Skeletal Tracking</a></li>
+                    </ul>
+                </td>
+                <td width="33%">
+                    <img src='images/kinectv1.png' width=100% />
+                </td>
+            </tr>
+        </table>
+        <h3> Kinect v2 C++ SDK Basics</h3>
+        <table>
+            <tr>
+                <td width="67%">
+                    Minimal tutorials on how to use a Kinect in C++, with OpenGL (GLUT or SDL).
+                    These tutorials are for the v2 SDK, which is compatible with the time-of-flight
+                    Kinect sensor, i.e. the XBox One Kinect.
+                    <ul>
+                        <li><a href=kinect2/kinect0.html>0. Setup</a></li>
+                        <li><a href=kinect2/kinect1.html>1. Basics and RGB stream</a></li>
+                        <li><a href=kinect2/kinect2.html>2. Depth stream</a></li>
+                        <li><a href=kinect2/kinect3.html>3. Color Point Cloud</a></li>
+                        <li><a href=kinect2/kinect4.html>4. Body Tracking</a></li>
+                    </ul>
+                </td>
+                <td width="33%">
+                    <img src='images/kinectv2.jpg' width=100% />
+                </td>
+            </tr>
+        </table>
+    <hr>
+    <h2> About </h2>
+    While playing with various device APIs, I found that many of
+    the tools I was using were poorly supported. As a reference, I wrote
+    up a set of tutorials. My guiding principle is <b>focus</b>.
+    <ul>
+        <li>
+            <b>Explanation only where necessary</b> - I will take
+            time to explain the stuff the tutorial is on - how to use the API in
+            question. However, I will only give a high-level overview of the
+            remaining code, for windowing and display.
+            If you want to learn more about e.g.
+            OpenGL or C++, there are plenty of tutorials that will focus on
+            those aspects. I won't confuse you by trying to teach you three APIs
+            and a language simultaneously.
+        </li>
+        <li>
+            <b> Concise code </b> - I'll have exactly enough code to make it
+            work, and little else. I will sacrifice a bit of structure just to
+            save you the trouble of sorting through twice as many header files,
+            so that you can focus on the relevant functionality.
+        </li>
+    </ul>
+    </div>
+    </body>
+</html>

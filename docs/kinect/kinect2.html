@@ -1,0 +1,138 @@
+<html>
+    <head>
+        <title>
+            Kinect SDK C++ Tutorials - 2. Depth Images
+        </title>
+        <link rel="stylesheet" type="text/css" href="../main.css">
+        <link href="../google-code-prettify/prettify.css" type="text/css" rel="stylesheet" />
+        <script type="text/javascript" src="../google-code-prettify/prettify.js"></script>
+    </head>
+    <body onload="prettyPrint()">
+    <div id='navbarcontainer'>
+        <ul id='navbar'>
+            <li class='navitem'><a class='nav' href='../../index.html'>Home</a></li>
+            <li class='navitem'><a class='nav' href='../index.html'>Tutorials Home</a></li>
+        </ul>
+    </div>
+    <div id='content'>
+        <h1> Kinect v1 SDK C++ - 2. Kinect Depth Data </h1>
+        <div class="boxedmessage">
+            <table>
+                <tr>
+                    <td width=20%>
+                        <img src="../images/kinectv2.jpg" width=100% style="float:left"/>
+                    </td>
+                    <td width=80%>
+                        <b>Have a Kinect v2?</b> Head over to the <a href="../kinect2/kinect2.html">Kinect v2 Tutorial 2</a>. This tutorial is for the v1 Kinect SDK.
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <p>
+        <b>Goals:</b> Learn how to get depth data from a kinect and what
+        the format of the data is. <br>
+        <b>Source:</b> <a href='https://github.com/kyzyx/Tutorials/tree/master/KinectSDK/2_Depth'>View Source</a> &nbsp;&nbsp;&nbsp;&nbsp; <b>Download:</b> <a href='2_Depth.zip'>2_Depth.zip</a>
+
+        <hr>
+        <h2>Overview</h2>
+        This is a very short tutorial - there are only two real changes to the
+        RGB code. <p> I have also refactored the SDL and Glut components into
+        separate files to focus more on the Kinect specifics.
+        <br>
+        <h3>Contents</h3>
+        <ol>
+            <li><a href='#kinect'>Kinect Code</a></li>
+            <li><a href='#framework'>Display Frameworks</a></li>
+        </ol>
+        <hr>
+        <h2><a name='kinect'>Kinect Code</a></h2>
+        <h3>Kinect Initialization</h3>
+        To get the depth data from the kinect, simply change the arguments
+        to <code>NuiImageStreamOpen()</code>. The first argument is now
+        <code>NUI_IMAGE_TYPE_DEPTH</code>, telling the Kinect that we now
+        want depth images instead of RGB images. (For clarity we also changed
+        the name of the Handle to reflect this)
+        <p>
+        When you're using the Kinect for Windows sensor (as opposed to the XBox
+        Kinect) you can also enable Near Mode. Near Mode allows the Kinect to
+        be more sensitive to closer objects (say from 50cm to 200cm), whereas
+        without near mode it is sensitive from 80cm to 400cm. <p>
+        To enable near mode, pass in the flag <code>NUI_IMAGE_STREAM_FLAG_ENABLE_NEAR_MODE</code> as the third argument.
+        <pre class="prettyprint">
+// NEW VARIABLE
+HANDLE depthStream;
+
+bool initKinect() {
+    // Get a working kinect sensor
+    int numSensors;
+    if (NuiGetSensorCount(&numSensors) < 0 || numSensors < 1) return false;
+    if (NuiCreateSensorByIndex(0, &sensor) < 0) return false;
+
+    // Initialize sensor
+    sensor->NuiInitialize(NUI_INITIALIZE_FLAG_USES_DEPTH | NUI_INITIALIZE_FLAG_USES_COLOR);
+
+        // --------------- START CHANGED CODE -----------------
+    sensor->NuiImageStreamOpen(
+        NUI_IMAGE_TYPE_DEPTH,                     // Depth camera or rgb camera?
+        NUI_IMAGE_RESOLUTION_640x480,             // Image resolution
+        NUI_IMAGE_STREAM_FLAG_ENABLE_NEAR_MODE,   // Image stream flags, e.g. near mode
+        2,      // Number of frames to buffer
+        NULL,   // Event handle
+        &depthStream);
+        // --------------- END CHANGED CODE -----------------
+    return sensor;
+}
+        </pre>
+        For more information about near mode, see <a href="http://blogs.msdn.com/b/kinectforwindows/archive/2012/01/20/near-mode-what-it-is-and-isn-t.aspx">this official blog post</a>.
+        <h3> Getting a depth frame from the Kinect </h3>
+        We'll display the depth image from the kinect in grayscale. Each pixel
+        will just be the pixel's distance from the kinect (in millimeters) mod
+        256.<p>
+        The only thing to note here is the <code>NuiDepthPixelToDepth</code>
+        function - each pixel in the actual depth map has both depth information
+        and player information (i.e. which player can be associated with that
+        pixel). Calling this function returns the depth in millimeters at that
+        pixel.
+        <p> The depth data is 16 bits, so we use a USHORT to read it in.
+        <pre class="prettyprint">
+        const USHORT* curr = (const USHORT*) LockedRect.pBits;
+        const USHORT* dataEnd = curr + (width*height);
+
+        while (curr < dataEnd) {
+            // Get depth in millimeters
+            USHORT depth = NuiDepthPixelToDepth(*curr++);
+
+            // Draw a grayscale image of the depth:
+            // B,G,R are all set to depth%256, alpha set to 1.
+            for (int i = 0; i < 3; ++i)
+                *dest++ = (BYTE) depth%256;
+            *dest++ = 0xff;
+        }
+
+        </pre>
+        <br>
+        That's all the Kinect code! The rest is just how to get it onscreen.
+        <hr>
+        <h2><a name='frameworks'>Display Frameworks</a></h2>
+        I refactored the code so that the glut and SDL specifics are bundled
+        up into an <code>init()</code> function, a <code>draw()</code> function,
+        and an <code>execute()</code> function.
+        <p> To use one or the other, simply
+        change the include at the top of <code>main.cpp</code> to use either
+        <code>sdl.h</code> or <code>glut.h</code>. Make sure you have the
+        appropriate includes and links in the Project Properties!
+        <hr>
+        The End! Build and run, making sure that your Kinect is plugged in.
+        You should see a window containing a video stream of what your Kinect
+        sees, in grayscale.
+        <hr>
+<table width="100%"><tr><td>
+        <a href='kinect1.html'>Previous: Basics</a>
+</td><td>
+        <p align="right">
+        <a href='kinect3.html'>Next: Kinect Point Cloud</a>
+        </p>
+</td>
+    </div>
+    </body>
+</html>

@@ -1,0 +1,188 @@
+<html>
+    <head>
+        <title>
+            Kinect SDK C++ Tutorials - 4. Skeletal Tracking
+        </title>
+        <link rel="stylesheet" type="text/css" href="../main.css">
+        <link href="../google-code-prettify/prettify.css" type="text/css" rel="stylesheet" />
+        <script type="text/javascript" src="../google-code-prettify/prettify.js"></script>
+    </head>
+    <body onload="prettyPrint()">
+    <div id='navbarcontainer'>
+        <ul id='navbar'>
+            <li class='navitem'><a class='nav' href='../../index.html'>Home</a></li>
+            <li class='navitem'><a class='nav' href='../index.html'>Tutorials Home</a></li>
+        </ul>
+    </div>
+    <div id='content'>
+        <h1> Kinect v1 SDK C++ - 4. Kinect Skeletal Tracking </h1>
+        <p>
+        <b>Goals:</b> Learn how to get skeletal tracking data,
+        specifically joint positions, from the Kinect. <br>
+        <b>Source:</b> <a href='https://github.com/kyzyx/Tutorials/tree/master/KinectSDK/4_SkeletalTracking'>View Source</a> &nbsp;&nbsp;&nbsp;&nbsp; <b>Download:</b> <a href='4_SkeletalTracking.zip'>4_SkeletalTracking.zip</a>
+
+        <hr>
+        <h2>Overview</h2>
+        This is a fairly simple tutorial that shows you how to get basic
+        information about human bodies in the view of the Kinect. We will
+        show how to extract the 3D positions of the body's joints, which can
+        then be further processed to do things a simple as drawing a skeleton,
+        to things as complex as gesture recognition.
+        <p>
+        To do this, we will start with the framework we made in the
+        <a href="kinect3.html">point cloud tutorial</a> and add on
+        a few bits.
+        <br>
+        <h3>Contents</h3>
+        <ol>
+            <li><a href='#kinect'>Kinect Code</a></li>
+            <li><a href='#opengl'>OpenGL Display</a></li>
+        </ol>
+        <hr>
+        <h2><a name='kinect'>Kinect Code</a></h2>
+        <h3>Global Variables</h3>
+        As a global variable, we will keep an
+        array of all the <code>Joint</code>s in the last seen body.
+        <pre class="prettyprint">
+// Body tracking variables
+Vector4 skeletonPosition[NUI_SKELETON_POSITION_COUNT];
+        </pre>
+        There are <code>NUI_SKELETON_POSITION_COUNT = 20</code> joints
+        tracked by the Kinect, which can be found <a href='https://msdn.microsoft.com/en-us/library/nuiskeleton.nui_skeleton_position_index.aspx'>here</a>. Each
+        joint has one Vector4 in the array describing its 3D location in
+        camera coordinates. For example, to find the position of the right
+        elbow, use <code>skeletonPosition[NUI_SKELETON_POSITION_ELBOW_RIGHT]</code>
+
+        <h3>Kinect Initialization</h3>
+        We add two new parts to our Kinect initialization. First, we request
+        skeletal tracking data when we initialize the Kinect, and then we
+        enable tracking.
+        <pre class="prettyprint">
+bool initKinect() {
+    // ...
+    sensor->NuiInitialize(
+            NUI_INITIALIZE_FLAG_USES_DEPTH_AND_PLAYER_INDEX
+          | NUI_INITIALIZE_FLAG_USES_COLOR
+          | NUI_INITIALIZE_FLAG_USES_SKELETON);
+
+
+    sensor->NuiSkeletonTrackingEnable(
+        NULL,
+        0     // NUI_SKELETON_TRACKING_FLAG_ENABLE_SEATED_SUPPORT for only upper body
+    );
+    // ...
+}
+        </pre>
+        By default, the Kinect expects people to be standing approximately
+        facing the sensor for best tracking. It can track seated people
+        facing the sensor (e.g. on a couch) if you pass in the appropriate
+        flag as the second argument to <code>NuiSkeletonTrackingEnable</code>
+        <h3> Getting joint data from the Kinect </h3>
+        Getting skeletal data is simpler than getting color or depth
+        data - no locking or anything. We simply grab a
+        <code>NUI_SKELETON_FRAME</code> from the
+        sensor. Joint tracking can be very noisy, so to reduce the amount
+        of jitter in joint positions over time, we also call a built in
+        smoothing function.
+        <pre class="prettyprint">
+void getSkeletalData() {
+    NUI_SKELETON_FRAME skeletonFrame = {0};
+    if (sensor->NuiSkeletonGetNextFrame(0, &skeletonFrame) >= 0) {
+        sensor->NuiTransformSmooth(&skeletonFrame, NULL);
+        // Process skeletal frame (see below)...
+    }
+}
+        </pre>
+        The Kinect can track up to <code>NUI_SKELETON_COUNT</code> people
+        simultaneously (in the SDK, <code>NUI_SKELETON_COUNT == 6</code>).
+        The skeleton data structure, <code>NUI_SKELETON_DATA</code> can be
+        accessed in the <code>SkeletonData</code> array field of the frame.
+        Note that each skeleton may not necessarily refer to an actual person
+        that the Kinect can see, and the first tracked body might not necessarily
+        be the first array element. Thus, we need to check whether or not
+        each of the elements of the array is a tracked body. To do this,
+        we check the tracking state of the skeleton.
+        <pre class="prettyprint">
+        // Loop over all sensed skeletons
+        for (int z = 0; z < NUI_SKELETON_COUNT; ++z) {
+            const NUI_SKELETON_DATA& skeleton = skeletonFrame.SkeletonData[z];
+            // Check the state of the skeleton
+            if (skeleton.eTrackingState == NUI_SKELETON_TRACKED) {
+                // Get skeleton data (see below)...
+            }
+        }
+        </pre>
+        Once we have a valid, tracked skeleton, then we can just copy
+        the all the joint data into our array of joint positions. We
+        also check the tracking state of each individual joint, since
+        the Kinect may not be able to track all of the joints (such as
+        if the user's arms are behind their back or otherwise occluded).
+        We use the w-coordinate of the Vector4 joint positions to keep
+        track of whether or not it is a valid, tracked joint.
+        <pre class="prettyprint">
+            // For the first tracked skeleton
+            {
+                // Copy the joint positions into our array
+                for (int i = 0; i < NUI_SKELETON_POSITION_COUNT; ++i) {
+                    skeletonPosition[i] = skeleton.SkeletonPositions[i];
+                    if (skeleton.eSkeletonPositionTrackingState[i] == NUI_SKELETON_POSITION_NOT_TRACKED) {
+                        skeletonPosition[i].w = 0;
+                    }
+                }
+                return; // Only take the data for one skeleton
+            }
+        </pre>
+        <hr>
+        <h2><a name='opengl'>OpenGL Display</a></h2>
+        We will simply take the coordinates given to us in the <code>Joint</code>
+        array, and draw some lines showing the body's arms. This means that we
+        will draw one line from the right shoulder to the right elbow, then one
+        from the right elbow to the right wrist, and likewise for the left side.
+        Of course, we only want to do this if the Kinect can see someone, so
+        we check the w-coordinate of the vectors for validity.
+        <pre class="prettyprint">
+void drawKinectData() {
+    // ...
+    const Vector4& lh = skeletonPosition[NUI_SKELETON_POSITION_HAND_LEFT];
+    const Vector4& le = skeletonPosition[NUI_SKELETON_POSITION_ELBOW_LEFT];
+    const Vector4& ls = skeletonPosition[NUI_SKELETON_POSITION_SHOULDER_LEFT];
+    const Vector4& rh = skeletonPosition[NUI_SKELETON_POSITION_HAND_RIGHT];
+    const Vector4& re = skeletonPosition[NUI_SKELETON_POSITION_ELBOW_RIGHT];
+    const Vector4& rs = skeletonPosition[NUI_SKELETON_POSITION_SHOULDER_RIGHT];
+    glBegin(GL_LINES);
+        glColor3f(1.f, 0.f, 0.f);
+        if (lh.w > 0 && le.w > 0 && ls.w > 0) {
+            // lower left arm
+            glVertex3f(lh.x, lh.y, lh.z);
+            glVertex3f(le.x, le.y, le.z);
+            // upper left arm
+            glVertex3f(le.x, le.y, le.z);
+            glVertex3f(ls.x, ls.y, ls.z);
+        }
+        if (rh.w > 0 && re.w > 0 && rs.w > 0) {
+            // lower right arm
+            glVertex3f(rh.x, rh.y, rh.z);
+            glVertex3f(re.x, re.y, re.z);
+            // upper right arm
+            glVertex3f(re.x, re.y, re.z);
+            glVertex3f(rs.x, rs.y, rs.z);
+        }
+    glEnd();
+}
+    </pre>
+        <hr>
+        The End! Build and run, making sure that your Kinect is plugged in.
+        You should see a window containing a rotating color point cloud of
+        what your Kinect sees, with red lines showing the arms of a person
+        if there is one in the view of the Kinect.
+        <hr>
+<table width="100%"><tr><td>
+        <a href='kinect3.html'>Previous: Point Clouds</a>
+</td><td>
+        <p align="right">
+        <a href='#'>Next: KinectFusion (Coming Soon)</a>
+        </p>
+</td>
+    </div>
+    </body>
+</html>

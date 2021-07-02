@@ -1,0 +1,123 @@
+<html>
+    <head>
+        <title>
+            Kinect SDK C++ Tutorials - 2. Depth Images
+        </title>
+        <link rel="stylesheet" type="text/css" href="../main.css">
+        <link href="../google-code-prettify/prettify.css" type="text/css" rel="stylesheet" />
+        <script type="text/javascript" src="../google-code-prettify/prettify.js"></script>
+    </head>
+    <body onload="prettyPrint()">
+    <div id='navbarcontainer'>
+        <ul id='navbar'>
+            <li class='navitem'><a class='nav' href='../../index.html'>Home</a></li>
+            <li class='navitem'><a class='nav' href='../index.html'>Tutorials Home</a></li>
+        </ul>
+    </div>
+    <div id='content'>
+        <h1> Kinect v2 SDK C++ - 2. Kinect Depth Data </h1>
+        <p>
+        <b>Goals:</b> Learn how to get depth data from a kinect and what
+        the format of the data is. <br>
+        <b>Source:</b> <a href='https://github.com/kyzyx/Tutorials/tree/master/Kinect2SDK/2_Depth'>View Source</a> &nbsp;&nbsp;&nbsp;&nbsp; <b>Download:</b> <a href='2_Depth.zip'>2_Depth.zip</a>
+
+        <hr>
+        <h2>Overview</h2>
+        This is a very short tutorial - there are only two real changes to the
+        RGB code. <p> I have also refactored the SDL and Glut components into
+        separate files to focus more on the Kinect specifics.
+        <br>
+        <h3>Contents</h3>
+        <ol>
+            <li><a href='#kinect'>Kinect Code</a></li>
+            <li><a href='#framework'>Display Frameworks</a></li>
+        </ol>
+        <hr>
+        <h2><a name='kinect'>Kinect Code</a></h2>
+        <h3>Kinect Initialization</h3>
+        To get the depth data from the kinect, simply change the types of the
+        framesource, framereader, and frame. Note also that the resolution of
+        the depth camera is different from that of the color camera: 512*424
+        instead of 1920*1080.
+        <pre class="prettyprint">
+IDepthFrameReader* reader;     // Kinect depth data source
+
+bool initKinect() {
+    if (FAILED(GetDefaultKinectSensor(&sensor))) {
+        return false;
+    }
+    if (sensor) {
+        sensor->Open();
+        IDepthFrameSource* framesource = NULL;
+        sensor->get_DepthFrameSource(&framesource);
+        framesource->OpenReader(&reader);
+        if (framesource) {
+            framesource->Release();
+            framesource = NULL;
+        }
+        return true;
+    } else {
+        return false;
+    }
+}
+        </pre>
+        <h3> Getting a depth frame from the Kinect </h3>
+        We'll display the depth image from the kinect in grayscale. Each pixel
+        will just be the pixel's distance from the kinect (in millimeters) mod
+        256.<p>
+        <pre class="prettyprint">
+void getKinectData(GLubyte* dest) {
+    IDepthFrame* frame = NULL;
+    if (SUCCEEDED(reader->AcquireLatestFrame(&frame))) {
+        unsigned int sz;
+        unsigned short* buf;
+        frame->AccessUnderlyingBuffer(&sz, &buf);
+
+        const unsigned short* curr = (const unsigned short*)buf;
+        const unsigned short* dataEnd = curr + (width*height);
+
+        while (curr < dataEnd) {
+            // Get depth in millimeters
+            unsigned short depth = (*curr++);
+
+            // Draw a grayscale image of the depth:
+            // B,G,R are all set to depth%256, alpha set to 1.
+            for (int i = 0; i < 3; ++i)
+                *dest++ = (BYTE)depth % 256;
+            *dest++ = 0xff;
+        }
+    }
+    if (frame) frame->Release();
+}
+        </pre>
+        Note that, unlike with the color frame, we just want to access the raw
+        data from the frame. To do this, we use <code>frame->AccessUnderlyingBuffer</code>
+        to get a pointer to the data.
+        <br>
+        Then we convert the depth data and write it to our image array.
+        <br>
+        That's all the Kinect code! The rest is just how to get it onscreen.
+        <hr>
+        <h2><a name='frameworks'>Display Frameworks</a></h2>
+        I refactored the code so that the glut and SDL specifics are bundled
+        up into an <code>init()</code> function, a <code>draw()</code> function,
+        and an <code>execute()</code> function.
+        <p> To use one or the other, simply
+        change the include at the top of <code>main.cpp</code> to use either
+        <code>sdl.h</code> or <code>glut.h</code>. Make sure you have the
+        appropriate includes and links in the Project Properties!
+        <hr>
+        The End! Build and run, making sure that your Kinect is plugged in.
+        You should see a window containing a video stream of what your Kinect
+        sees, in grayscale.
+        <hr>
+<table width="100%"><tr><td>
+        <a href='kinect1.html'>Previous: Basics</a>
+</td><td>
+        <p align="right">
+        <a href='kinect3.html'>Next: Kinect Point Cloud</a>
+        </p>
+</td>
+    </div>
+    </body>
+</html>

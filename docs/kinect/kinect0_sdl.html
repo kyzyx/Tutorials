@@ -1,0 +1,145 @@
+<html>
+    <head>
+        <title>
+            Kinect SDK C++ Tutorials - 0. Setup
+        </title>
+        <link rel="stylesheet" type="text/css" href="../main.css">
+        <script src='https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js' type='text/javascript'></script>
+        <script type='text/javascript'>
+            $(document).ready(function() {
+                $('img.screenshot').each(function(index) {
+                    $(this).wrap('<a href="' + $(this).attr('src') + '">');
+                });
+            });
+        </script>
+    </head>
+    <body>
+    <div id='navbarcontainer'>
+        <ul id='navbar'>
+            <li class='navitem'><a class='nav' href='../../index.html'>Home</a></li>
+            <li class='navitem'><a class='nav' href='../index.html'>Tutorials Home</a></li>
+        </ul>
+    </div>
+    <div id='content'>
+        <h1> Kinect v1 SDK C++ - 0. Setup </h1>
+        <div class="boxedmessage">
+            <table>
+                <tr>
+                    <td width=20%>
+                        <img src="../images/kinectv2.jpg" width=100% style="float:left"/>
+                    </td>
+                    <td width=80%>
+                        <b>Have a Kinect v2?</b> Head over to the <a href="../kinect2/kinect0_sdl.html">Kinect v2 Tutorial 0</a>. This tutorial is for the v1 Kinect SDK.
+                    </td>
+                </tr>
+            </table>
+        </div>
+        This series of tutorials is intended for C++ programmers who want to use Microsoft's Kinect SDK.
+        There will be as little Windows code as possible. We will be using OpenGL for graphics.
+        <p>
+        <b>Goals:</b> Ensure you have the necessary components for coding with Kinect. Set up a Visual Studio
+        project with the proper build configurations.<br>
+        <b>Source:</b> <a href='https://github.com/kyzyx/Tutorials/tree/master/KinectSDK/1_Basics'>View Source</a> &nbsp;&nbsp;&nbsp;&nbsp; <b>Download:</b> <a href='1_Basics.zip'>1_Basics.zip</a>
+        <p>
+        Prerequisites: <ul>
+            <li> Windows (this is the Windows SDK, after all) </li>
+            <li> A Kinect (preferably Kinect for PC) </li>
+            <li> Visual Studio (some recent version) </li>
+            <li> Experience with C </li>
+            <li> Familiarity (or willingness to learn) OpenGL </li>
+        </ul>
+
+        This tutorial will be compatible with both GLUT and SDL.<br>
+
+        <big><a href='kinect0.html'>Click here for the GLUT Version of 0. Setup</a></big>
+
+        <hr>
+        <h2> Installing SDL </h2>
+        <p>
+        Download the latest version of the Visual C++ SDL Development Libraries
+        from <a href='http://www.libsdl.org'>libsdl.org</a>; at the time of
+        writing this was version <a href='http://www.libsdl.org/release/SDL-devel-1.2.15-VC.zip'>1.2.15</a>
+        </p>
+        <p>
+        Unzip the contents to a suitable place (e.g. C:\).
+        </p>
+        To make our lives easier we will do two things:
+        <ol>
+            <li> <b>Copy the SDL.dll file to our system directory.</b> Go to
+            C:\SDL-1.2.15\lib\x86 (or the equivalent) and copy SDL.dll. Paste
+            it into C:\Windows\SysWOW64 if that folder exists (i.e. you have
+            a 64-bit version of Windows). Otherwise, paste it into
+            C:\Windows\System32</li>
+            <li> <b>Add the SDL folder as an environment variable.</b>
+                Open up the start menu, right click Computer, and select
+                Properties. Click "Advanced System Settings" on the left
+                side, go to the Advanced tab in the resulting dialog, and click
+                the button labelled "Environment Variables".
+                <br>
+                Under User variables (the top set of buttons) click "New...".
+                Enter "SDL_DIR" (no quotes) for the variable name and the
+                path to the SDL directory (e.g. "C:\SDL-1.2.15") as the value.
+            </li>
+        </ol>
+
+        <hr>
+        <h2> Creating a Kinect Project </h2>
+        <b>Open up Visual Studio and start a new Empty Project.</b> Click
+        File > New > Project...; then select C++ > General > Empty Project.
+        Name it appropriately. </p>
+        <img src='images/0_0.jpg' class='screenshot'><br><br>
+        To configure the build rules (i.e. includes and libs) we will use the Property Manager. This will
+        allow us to save the configurations to separate files so that we can use them again later. </p>
+        <p>
+        <b>Go to <u>View</u> > <u>Property Manager</u>. </b> This will open up
+        a pane in one of the subwindows in Visual Studio containing build
+        rules.
+        </p><img src='images/0_1.jpg' class='screenshot'>
+        <p>
+        <b>In the Property Manager, right click on the project name and select <u>Add New Project Property Sheet</u>; name it "OpenGL". Create another one named "KinectSDK"</b>.
+        You should see several new items appear under "Debug" and "Release"
+        with the names of your new Property Sheets. Property Sheets are files
+        (extension .props) that contain build configuration data. For
+        modularity, we will create one for our OpenGL info and one for our
+        Kinect SDK info.
+        </p><img src='images/0_2.jpg' class='screenshot'><img src='images/0_2_2.jpg' class='screenshot'>
+        <p>
+        <b>Right-click the Kinect Property Sheet and click Properties.
+            <ul>
+                <li>Under C/C++ > Additional Include Directories, add "$(KINECTSDK10_DIR)/include". </li>
+                <li>Under Linker > Additional Library Directories, add "$(KINECTSDK10_DIR)/lib/x64" (or /x86 for 32-bit systems). </li>
+                <li>Under Linker > Input > Additional Dependencies, add "kinect10.lib". </li>
+            </ul>
+        </b>
+        Note that to add Include and Library Directories, you can either just
+        type into the box, or you can click the dropdown, select &lt;Edit&gt;,
+        and enter the location in the resulting dialog. This method lets you
+        manage multiple directories easily, as well as lets you browse for the
+        exact directory (if you don't use environment variables like
+        KINECTSDK10_DIR)
+        </p>
+        <p>
+        <b>Right-click the OpenGL Property Sheet and click Properties. Under Linker > Input > Additional Dependencies, add the following:
+            <ul>
+                <li>Under C/C++ > Additional Include Directories, add "$(SDL_DIR)\include". </li>
+                <li>Under Linker > Additional Library Directories, add "$(SDL_DIR)\lib\x86". </li>
+                <li>Under Linker > Input > Additional Dependencies, add the following: </li>
+        </ul></b>
+        <pre>
+opengl32.lib
+glu32.lib
+SDL.lib
+SDLmain.lib
+        </pre>
+        </p>
+        <img src='images/0_3.jpg' class = 'screenshot'>
+        <br>
+        <hr>
+        That's it for now - you have a project that is ready for some code.
+        <hr>
+        <p align="right">
+        <a href='kinect1.html'>Next: Kinect Basics</a>
+        </p>
+    </div>
+    </body>
+</html>
